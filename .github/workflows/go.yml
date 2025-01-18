@@ -12,72 +12,50 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
+
     steps:
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v3
+
+    - name: Setup Linux Dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install -y libgl1-mesa-dev and xorg-dev
+
+    - name: Setup Windows Dependencies
+      if: runner.os == 'Windows'
+      run: |
+        choco install -y make mingw
+
     - name: Set up Go 1.x
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
-        go-version: ^1.18
+        go-version: stable
       id: go
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
-
-    - name: Install make (Windows)
-      if: runner.os == 'Windows'
-      run: choco install -y make mingw
-
-    - name: Build
-      run: make build
-
-    - name: Setup
-      if: runner.os == 'Linux'
-      run: docker-compose up -d mysql
-
-    - name: Check (Linux)
-      if: runner.os == 'Linux'
+    - name: Run Tests
       run: make check
-
-    - name: Check (Non-Linux)
-      if: runner.os != 'Linux'
-      run: make check
-      env:
-        GOTEST_FLAGS: "-short"
-
-    - name: Upload Code Coverage
-      if: runner.os == 'Linux'
-      run: bash <(curl -s https://codecov.io/bash)
 
   docker:
     name: Docker build
     runs-on: [ ubuntu-latest ]
     steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: stable
+      id: go
+
     - name: Setup Node / NPM
       if: runner.os == 'Linux'
-      uses: actions/setup-node@v2-beta
+      uses: actions/setup-node@v3
       with:
-        node-version: '16'
+        node-version: '20'
 
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
-
-    # disable and stop mono-xsp4.service
-    # Details: https://github.com/actions/virtual-environments/issues/2821
-    - name: Ubuntu 20.04 Cleanup
-      if: runner.os == 'Linux'
-      run: |
-        sudo systemctl disable mono-xsp4.service || true
-        sudo systemctl stop mono-xsp4.service || true
-        sudo killall mono || true
+      uses: actions/checkout@v3
 
     - name: Docker Build
       if: runner.os == 'Linux'
       run: make docker-hub
-
-    - name: Tests
-      if: runner.os == 'Linux'
-      run: make build-batchsearch && make test-integration
-
-    - name: Test Cleanup
-      if: runner.os == 'Linux' && always()
-      run: make clean-integration

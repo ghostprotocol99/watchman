@@ -1,0 +1,11 @@
+Watchman:
+  Servers:
+    BindAddress: ":8084"
+    AdminAddress: ":9094"
+
+  Download:
+    RefreshInterval: "12h"
+    InitialDataDirectory: ""
+    IncludedLists:
+      - "us_csl"
+      - "us_ofac"

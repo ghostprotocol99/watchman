@@ -5,12 +5,14 @@
 package ofac
 
 import (
-	"io/ioutil"
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/moov-io/base/log"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDownloader(t *testing.T) {
@@ -18,17 +20,12 @@ func TestDownloader(t *testing.T) {
 		return
 	}
 
-	files, err := Download(log.NewNopLogger(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(filepath.Dir(files[0]))
+	files, err := Download(context.Background(), log.NewNopLogger(), "")
+	require.NoError(t, err)
+	require.Len(t, files, 4)
 
-	if len(files) != 4 {
-		t.Errorf("OFAC: found %d files", len(files))
-	}
-	for i := range files {
-		name := filepath.Base(files[i])
+	for fn := range files {
+		name := strings.ToLower(filepath.Base(fn))
 		switch name {
 		case "add.csv", "alt.csv", "sdn.csv", "sdn_comments.csv":
 			continue
@@ -39,7 +36,7 @@ func TestDownloader(t *testing.T) {
 }
 
 func TestDownloader__initialDir(t *testing.T) {
-	dir, err := ioutil.TempDir("", "iniital-dir")
+	dir, err := os.MkdirTemp("", "iniital-dir")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +44,7 @@ func TestDownloader__initialDir(t *testing.T) {
 
 	mk := func(t *testing.T, name string, body string) {
 		path := filepath.Join(dir, name)
-		if err := ioutil.WriteFile(path, []byte(body), 0600); err != nil {
+		if err := os.WriteFile(path, []byte(body), 0600); err != nil {
 			t.Fatalf("writing %s: %v", path, err)
 		}
 	}
@@ -56,14 +53,14 @@ func TestDownloader__initialDir(t *testing.T) {
 	mk(t, "sdn.csv", "file=sdn.csv")
 	mk(t, "dpl.txt", "file=dpl.txt")
 
-	files, err := Download(log.NewNopLogger(), dir)
+	files, err := Download(context.Background(), log.NewNopLogger(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := range files {
-		switch filepath.Base(files[i]) {
+	for fn := range files {
+		switch filepath.Base(fn) {
 		case "sdn.txt":
-			bs, err := ioutil.ReadFile(files[i])
+			bs, err := os.ReadFile(fn)
 			if err != nil {
 				t.Fatal(err)
 			}
